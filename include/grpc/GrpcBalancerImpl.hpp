@@ -61,9 +61,9 @@ public:
                         ::message::PeerResponse *response);
 
   virtual ::grpc::Status RegisterChattingServerInstance(
-            ::grpc::ServerContext* context,
-            const ::message::GrpcChattingServerRegRequest* request,
-            ::message::GrpcChattingServerResponse* response);
+      ::grpc::ServerContext *context,
+      const ::message::GrpcChattingServerRegRequest *request,
+      ::message::GrpcChattingServerResponse *response);
 
   virtual ::grpc::Status RegisterChattingGrpcServer(
       ::grpc::ServerContext *context,

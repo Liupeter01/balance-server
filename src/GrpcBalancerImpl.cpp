@@ -1,3 +1,4 @@
+#include "spdlog/spdlog.h"
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
@@ -12,7 +13,8 @@ grpc::GrpcBalancerImpl::UserInfo::UserInfo(
     : m_tokens(std::move(tokens)), m_host(config._host), m_port(config._port) {}
 
 grpc::GrpcBalancerImpl::GrpcBalancerImpl() {
-          spdlog::info("[Balance Server]: Start to receive Chatting Grpc Server Configrations");
+  spdlog::info(
+      "[Balance Server]: Start to receive Chatting Grpc Server Configrations");
 }
 
 grpc::GrpcBalancerImpl::~GrpcBalancerImpl() {}
@@ -143,84 +145,135 @@ void grpc::GrpcBalancerImpl::registerUserInfo(std::size_t uuid,
     ::grpc::ServerContext *context, const ::message::PeerListsRequest *request,
     ::message::PeerResponse *response) {
 
-              {
-                        std::lock_guard<std::mutex> _lckg(this->chatting_mtx);
-                        auto target = this->chatting_servers.find(request->cur_server());
+  spdlog::info("[Balance Server]: Remote Chatting Server {0} Request To "
+               "GetPeerChattingServerInfo",
+               request->cur_server());
 
-                        /*we found it in the structure*/
-                        if (target != this->chatting_servers.end()) {
-                                  std::for_each(
-                                            chatting_servers.begin(), chatting_servers.end(),
-                                            [&request, &response](decltype(*chatting_servers.begin())& peer) {
-                                                      if (peer.first != request->cur_server()) {
-                                                                auto new_peer = response->add_lists();
-                                                                new_peer->set_name(peer.second->_name);
-                                                                new_peer->set_host(peer.second->_host);
-                                                                new_peer->set_port(peer.second->_port);
-                                                      }
-                                            });
-                        }
-                        response->set_error(static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
-                        return grpc::Status::OK;
-              }
+  {
+    std::lock_guard<std::mutex> _lckg(this->chatting_mtx);
+    auto target = this->chatting_servers.find(request->cur_server());
 
-          /*we didn't find cur_server in unordered_map*/
-              response->set_error(static_cast<std::size_t>(ServiceStatus::CHATTING_SERVER_NOT_EXISTS));
-              return grpc::Status::OK;
+    /*we found it in the structure*/
+    if (target != this->chatting_servers.end()) {
+      std::for_each(
+          chatting_servers.begin(), chatting_servers.end(),
+          [&request, &response](decltype(*chatting_servers.begin()) &peer) {
+            if (peer.first != request->cur_server()) {
+              auto new_peer = response->add_lists();
+              new_peer->set_name(peer.second->_name);
+              new_peer->set_host(peer.second->_host);
+              new_peer->set_port(peer.second->_port);
+            }
+          });
+    }
+    spdlog::info("[Balance Server]: Remote Chatting Server {0} Request To "
+                 "GetPeerChattingServerInfo Successful!",
+                 request->cur_server());
+
+    response->set_error(
+        static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
+    return grpc::Status::OK;
+  }
+
+  /*we didn't find cur_server in unordered_map*/
+  spdlog::warn(
+      "[Balance Server]: Remote Chatting Server {0} Request To "
+      "Retrieve Data From GetPeerChattingServerInfo Failed! Because of {1}",
+      request->cur_server(), "No Current ChattingServer Found!");
+
+  response->set_error(
+      static_cast<std::size_t>(ServiceStatus::CHATTING_SERVER_NOT_EXISTS));
+  return grpc::Status::OK;
 }
 
 ::grpc::Status grpc::GrpcBalancerImpl::GetPeerGrpcServerInfo(
     ::grpc::ServerContext *context, const ::message::PeerListsRequest *request,
     ::message::PeerResponse *response) {
 
-  {
-            std::lock_guard<std::mutex> _lckg(this->grpc_mtx);
-            auto target = this->grpc_servers.find(request->cur_server());
+  spdlog::info("[Balance Server]: Remote Chatting Server {0} Request To "
+               "GetPeerGrpcServerInfo",
+               request->cur_server());
 
-            /*we found it it mapping structure*/
-            if (target != this->grpc_servers.end()) {
-                      std::for_each(grpc_servers.begin(), grpc_servers.end(),
-                                [&request, &response](decltype(*grpc_servers.begin())& peer) {
-                                          if (peer.first != request->cur_server()) {
-                                                    auto new_peer = response->add_lists();
-                                                    new_peer->set_name(peer.second->_name);
-                                                    new_peer->set_host(peer.second->_host);
-                                                    new_peer->set_port(peer.second->_port);
-                                          }
-                                });
+  {
+    std::lock_guard<std::mutex> _lckg(this->grpc_mtx);
+    auto target = this->grpc_servers.find(request->cur_server());
+
+    /*we found it it mapping structure*/
+    if (target != this->grpc_servers.end()) {
+      std::for_each(
+          grpc_servers.begin(), grpc_servers.end(),
+          [&request, &response](decltype(*grpc_servers.begin()) &peer) {
+            if (peer.first != request->cur_server()) {
+              auto new_peer = response->add_lists();
+              new_peer->set_name(peer.second->_name);
+              new_peer->set_host(peer.second->_host);
+              new_peer->set_port(peer.second->_port);
             }
-            response->set_error(static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
-            return grpc::Status::OK;
+          });
+    }
+    spdlog::info("[Balance Server]: Remote Chatting Server {0} Request To "
+                 "GetPeerGrpcServerInfo Successful!",
+                 request->cur_server());
+
+    response->set_error(
+        static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
+    return grpc::Status::OK;
   }
 
   /*we didn't find cur_server in unordered_map*/
-  response->set_error(static_cast<std::size_t>(ServiceStatus::GRPC_SERVER_NOT_EXISTS));
+  spdlog::warn(
+      "[Balance Server]: Remote Chatting Server {0} Request To "
+      "Retrieve Data From GetPeerGrpcServerInfo Failed! Because of {1}",
+      request->cur_server(), "No Current GRPCServer Found!");
+
+  response->set_error(
+      static_cast<std::size_t>(ServiceStatus::GRPC_SERVER_NOT_EXISTS));
   return grpc::Status::OK;
 }
 
 ::grpc::Status grpc::GrpcBalancerImpl::RegisterChattingServerInstance(
-          ::grpc::ServerContext* context, const::message::GrpcChattingServerRegRequest* request, 
-          ::message::GrpcChattingServerResponse* response)
-{
-          {
-                    std::lock_guard<std::mutex> _lckg(this->chatting_mtx);
-                    auto target = this->chatting_servers.find(request->info().name());
-                    if (target == this->chatting_servers.end()) {
-                              auto chatting_peer = std::make_unique<grpc::GrpcBalancerImpl::ChattingServerConfig>(
-                                        request->info().host(), request->info().port(), request->info().name());
+    ::grpc::ServerContext *context,
+    const ::message::GrpcChattingServerRegRequest *request,
+    ::message::GrpcChattingServerResponse *response) {
 
-                              this->chatting_servers.insert(
-                                        std::pair<std::string, std::unique_ptr<grpc::GrpcBalancerImpl::ChattingServerConfig>>(
-                                                  request->info().name(), std::move(chatting_peer)));
+  spdlog::info("[Balance Server]: Remote Chatting Server {0} Request To "
+               "Register ChattingServerInstance.",
+               request->info().name());
 
-                              response->set_error(
-                                        static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
-                    }
-                    return grpc::Status::OK;
-          }
-          /*server has already exists*/
-          response->set_error(static_cast<std::size_t>(ServiceStatus::CHATTING_SERVER_ALREADY_EXISTS));
-          return grpc::Status::OK;
+  {
+    std::lock_guard<std::mutex> _lckg(this->chatting_mtx);
+    auto target = this->chatting_servers.find(request->info().name());
+    if (target == this->chatting_servers.end()) {
+      auto chatting_peer =
+          std::make_unique<grpc::GrpcBalancerImpl::ChattingServerConfig>(
+              request->info().host(), request->info().port(),
+              request->info().name());
+
+      this->chatting_servers.insert(
+          std::pair<
+              std::string,
+              std::unique_ptr<grpc::GrpcBalancerImpl::ChattingServerConfig>>(
+              request->info().name(), std::move(chatting_peer)));
+
+      spdlog::info("[Balance Server]: Remote Chatting Server {0} Register Host "
+                   "= {1}, Port = {2} Successful",
+                   request->info().name(), request->info().host(),
+                   request->info().port());
+
+      response->set_error(
+          static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
+      return grpc::Status::OK;
+    }
+  }
+  /*server has already exists*/
+  spdlog::warn("[Balance Server]: Remote Chatting Server {0} Register Instance "
+               "To ChattingServerInstance Failed"
+               "Because of {1}",
+               request->info().host(), "Chatting Server Already Exists!");
+
+  response->set_error(
+      static_cast<std::size_t>(ServiceStatus::CHATTING_SERVER_ALREADY_EXISTS));
+  return grpc::Status::OK;
 }
 
 ::grpc::Status grpc::GrpcBalancerImpl::RegisterChattingGrpcServer(
@@ -228,27 +281,46 @@ void grpc::GrpcBalancerImpl::registerUserInfo(std::size_t uuid,
     const ::message::GrpcChattingServerRegRequest *request,
     ::message::GrpcChattingServerResponse *response) {
 
-              {
-                        std::lock_guard<std::mutex> _lckg(this->grpc_mtx);
-                        auto target = this->grpc_servers.find(request->info().name());
+  spdlog::info("[Balance Server]: Remote Chatting GRPC Server {0} Request To "
+               "Register ChattingGrpcInstance.",
+               request->info().name());
 
-                        /*we didn't find this grpc server's name in balancer-server so its alright*/
-                        if (target == this->grpc_servers.end()) {
-                                  auto grpc_peer = std::make_unique<grpc::GrpcBalancerImpl::GRPCServerConfig>(
-                                            request->info().host(), request->info().port(), request->info().name());
+  {
+    std::lock_guard<std::mutex> _lckg(this->grpc_mtx);
+    auto target = this->grpc_servers.find(request->info().name());
 
-                                  this->grpc_servers.insert(
-                                            std::pair<std::string, std::unique_ptr<GRPCServerConfig>>(
-                                                      request->info().name(), std::move(grpc_peer)));
+    /*we didn't find this grpc server's name in balancer-server so its alright*/
+    if (target == this->grpc_servers.end()) {
+      auto grpc_peer =
+          std::make_unique<grpc::GrpcBalancerImpl::GRPCServerConfig>(
+              request->info().host(), request->info().port(),
+              request->info().name());
 
-                                  response->set_error(
-                                            static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
-                        }
-                        return grpc::Status::OK;
-              }
+      this->grpc_servers.insert(
+          std::pair<std::string, std::unique_ptr<GRPCServerConfig>>(
+              request->info().name(), std::move(grpc_peer)));
+
+      spdlog::info(
+          "[Balance Server]: Remote Chatting GRPC Server {0} Register Host "
+          "= {1}, Port = {2} Successful",
+          request->info().name(), request->info().host(),
+          request->info().port());
+
+      response->set_error(
+          static_cast<std::size_t>(ServiceStatus::SERVICE_SUCCESS));
+      return grpc::Status::OK;
+    }
+  }
 
   /*server has already exists*/
-  response->set_error(static_cast<std::size_t>(ServiceStatus::GRPC_SERVER_ALREADY_EXISTS));
+  spdlog::warn(
+      "[Balance Server]: Remote Chatting GRPC Server {0} Register Instance "
+      "To ChattingGRPCServerInstance Failed"
+      "Because of {1}",
+      request->info().host(), "Chatting Server Already Exists!");
+
+  response->set_error(
+      static_cast<std::size_t>(ServiceStatus::GRPC_SERVER_ALREADY_EXISTS));
   return grpc::Status::OK;
 }
 
@@ -281,6 +353,10 @@ void grpc::GrpcBalancerImpl::registerUserInfo(std::size_t uuid,
       this->chatting_servers.erase(target);
     }
   }
+
+  spdlog::info("[Balance Server]: Remote Chatting Server {} Removing Both "
+               "ChattingServer Instance And GRPC Server{0} Register Successful",
+               request->cur_server());
 
   response->set_error(
       static_cast<std::size_t>(status ? ServiceStatus::SERVICE_SUCCESS
